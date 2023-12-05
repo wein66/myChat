@@ -1,7 +1,7 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuthValue } from '../context/AuthProvider'
 import { db } from '../config/firebase';
-import { addDoc, collection, query, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 import '../assets/css/chatlobby.css';
 import Header from '../layout.jsx/Header';
@@ -9,19 +9,40 @@ import Footer from '../layout.jsx/Footer';
 import InputType from '../components/InputType';
 import ButtonType from '../components/ButtonType';
 
+import Room from '../components/Room';
+
 const ChatLobby = () => {
-  const [roomname, setRoomname] = React.useState();
+  const [roomname, setRoomname] = useState();
   const { nick, uicon, email} = useAuthValue();
+  
+  const [roomList, setRoomList] = useState();
+
+  const getRoom = () => {
+    const sql = query(collection(db, 'chatroom'), orderBy("timestamp", "desc"));
+    onSnapshot(sql, (res)=>{
+       const rooms = res.docs.map((doc)=>({
+          id: doc.id,
+          ...doc.data()
+       }));
+       setRoomList(rooms);
+    })
+  }
+
   const onPress = async () => {
      const dbref = collection(db, 'chatroom');
-     const rs = await addDoc(dbref, { 
-                   timestamp: serverTimestamp(),
-                   title: roomname,
-                   master: nick,
-                   email  
-                });
+          await addDoc(dbref, { 
+               timestamp: serverTimestamp(),
+               title: roomname,
+               master: nick,
+               email  
+          });     
      setRoomname("");           
   }
+  
+  useEffect(()=>{
+     getRoom();
+  }, [])
+
   return (
     <>
       <Header nick={nick} uicon={uicon} />
@@ -39,7 +60,9 @@ const ChatLobby = () => {
                       borderRadius:'15px',
                       backgroundColor:"#ebe5e6",
                       display:'block',
-                      marginBottom:'10px'
+                      marginBottom:'10px',
+                      marginLeft: 'auto',
+                      marginRight: 'auto'
                    }}
         />           
         <ButtonType 
@@ -55,8 +78,17 @@ const ChatLobby = () => {
                 color:"#fff"
              }}
        />      
-
-      </div> 
+          <div className="room-list">
+            {
+              roomList && 
+              roomList.map((r, index) => (
+                  <Room roomList={r} 
+                        key={index}
+                  />      
+              )) 
+            }
+          </div> 
+      </div>
       <Footer />
     </>
   )
